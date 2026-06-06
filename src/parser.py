@@ -1,3 +1,5 @@
+"""parser.py"""
+
 def detect_task_type(prompt: str) -> str:
     p = prompt.lower()
 
