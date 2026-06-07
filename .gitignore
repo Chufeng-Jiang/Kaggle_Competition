@@ -1,0 +1,38 @@
+# Output files
+outputs/
+
+# Checkpoints
+*.ckpt
+*.pth
+*.pt
+*.bin
+*.safetensors
+
+# Large datasets
+*.csv
+*.jsonl
+*.parquet
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Conda
+.env
+.venv
+venv/
+env/
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
