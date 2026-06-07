@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 from openai import OpenAI
 
-
 # ============================================================
 # 配置
 # ============================================================
@@ -32,7 +31,6 @@ ALL_OUTPUT_PATH = "outputs/cot_data_all.csv"
 CHECKPOINT_PATH = "outputs/checkpoint.json"
 MAX_WORKERS = 50
 
-
 # ============================================================
 # 工具函数
 # ============================================================
@@ -42,7 +40,6 @@ def format_number(x: float) -> str:
     if abs(x - round(x)) < 1e-9:
         return str(int(round(x)))
     return f"{x:.2f}"
-
 
 def fit_multiplier_by_rounding(xs, ys):
     low, high = -1e18, 1e18
@@ -55,7 +52,6 @@ def fit_multiplier_by_rounding(xs, ys):
     xs = np.array(xs, dtype=float)
     ys = np.array(ys, dtype=float)
     return float(np.sum(xs * ys) / np.sum(xs * xs))
-
 
 # ============================================================
 # Roman Solver
@@ -83,7 +79,6 @@ def solve_roman(prompt: str) -> tuple:
     cot += "\n".join(steps) + "\n"
     cot += f"Result: {ans}\n\\boxed{{{ans}}}"
     return ans, cot
-
 
 # ============================================================
 # Gravity Solver
@@ -119,7 +114,6 @@ def solve_gravity(prompt: str) -> tuple:
     cot += f"\nRounded: {pred}\n\\boxed{{{pred}}}"
     return pred, cot
 
-
 # ============================================================
 # Unit Solver
 # ============================================================
@@ -144,7 +138,6 @@ def solve_unit(prompt: str) -> tuple:
     cot += f"\nRounded: {pred}\n\\boxed{{{pred}}}"
     return pred, cot
 
-
 # ============================================================
 # Cipher Solver
 # ============================================================
@@ -161,7 +154,6 @@ def build_vocab(data_path: str) -> set:
         return vocab
     except Exception:
         return set()
-
 
 def solve_cipher(prompt: str, vocab: set) -> tuple:
     pairs = re.findall(r"^([a-z ]+) -> ([a-z ]+)$", prompt, flags=re.M)
@@ -210,7 +202,6 @@ def solve_cipher(prompt: str, vocab: set) -> tuple:
     cot += f"\nStep 3: Final decrypted phrase: '{pred}'\n\\boxed{{{pred}}}"
     return pred, cot
 
-
 # ============================================================
 # Bit Solver (DFS trace)
 # ============================================================
@@ -232,14 +223,12 @@ BIT_TRANSFORMATIONS = [('rot', 0)]
 for _k in range(1, 8):
     BIT_TRANSFORMATIONS.extend([('rot', _k), ('shl', _k), ('shr', _k)])
 
-
 def get_used_vars(expr):
     used = []
     if '{A}' in expr: used.append('{A}')
     if '{B}' in expr: used.append('{B}')
     if '{C}' in expr: used.append('{C}')
     return used
-
 
 def get_source_bit(in_bits, out_idx, trans):
     ttype, shift_val = trans
@@ -252,7 +241,6 @@ def get_source_bit(in_bits, out_idx, trans):
         src = out_idx - shift_val
         return in_bits[src] if 0 <= src < 8 else 0
 
-
 def evaluate_bit(evaluator, trans_dict, bit_idx, in_arrays, out_arrays, num_examples):
     for ex in range(num_examples):
         in_bits = in_arrays[ex]
@@ -263,7 +251,6 @@ def evaluate_bit(evaluator, trans_dict, bit_idx, in_arrays, out_arrays, num_exam
         if evaluator(av, bv, cv, 1) != expected:
             return False
     return True
-
 
 def generate_grammar_dynamically():
     mask = 255
@@ -312,13 +299,11 @@ def generate_grammar_dynamically():
                                 yield val2, new_expr, new_func
         levels.append(next_level)
 
-
 def format_hyp(expr, trans_dict):
     s = expr
     for k, v in trans_dict.items():
         s = s.replace(k, str(v))
     return s
-
 
 def solve_dfs_trace_dynamic(in_arrays, out_arrays, num_examples):
     trace = []
@@ -372,7 +357,6 @@ def solve_dfs_trace_dynamic(in_arrays, out_arrays, num_examples):
     trace.append("NO MATCH FOUND")
     return trace, None
 
-
 def solve_bit(prompt: str) -> tuple:
     ex_matches = re.findall(r'([01]{8})\s*->\s*([01]{8})', prompt)
     if not ex_matches:
@@ -393,7 +377,6 @@ def solve_bit(prompt: str) -> tuple:
         cot = "\n".join(trace) + f"\n\n\\boxed{{{pred}}}"
         return pred, cot
     return "", "\n".join(trace)
-
 
 # ============================================================
 # Symbol Numeric Solver (784种组合，频率加权扫描)
@@ -444,75 +427,90 @@ SN_FORMATS = [
     ("dsum",          lambda x, op: str(sum(int(d) for d in str(abs(x))))),
 ]
 
-# 频率加权顺序（从训练数据统计得出）
+# 频率加权顺序（与 symbol_digit_solver.py 完全一致）
 FREQ_ORDERED = [
     ("BA_DC", "add",         "rev"),
     ("BA_DC", "add",         "zpad2_rev"),
     ("BA_DC", "mul",         "rev"),
     ("BA_DC", "mul",         "zpad2_rev"),
     ("BA_DC", "mul",         "zpad3_rev"),
-    ("BA_DC", "max_mod_min", "rev"),
-    ("BA_DC", "abs_diff",    "rev_op_prefix"),
-    ("BA_DC", "add_m1",      "rev"),
-    ("BA_DC", "add_m1",      "zpad2_rev"),
     ("BA_DC", "mul",         "zpad4_rev"),
     ("BA_DC", "abs_diff",    "rev"),
-    ("BA_DC", "add1",        "rev"),
-    ("BA_DC", "add1",        "zpad2_rev"),
-    ("BA_DC", "mul_sub1",    "rev"),
-    ("BA_DC", "mul_sub1",    "zpad2_rev"),
-    ("BA_DC", "mul_sub1",    "zpad3_rev"),
-    ("BA_DC", "add",         "zpad3_rev"),
     ("BA_DC", "cat",         "rev"),
     ("BA_DC", "cat",         "zpad2_rev"),
     ("BA_DC", "cat",         "zpad3_rev"),
     ("BA_DC", "cat",         "zpad4_rev"),
-    ("AB_CD", "add",         "zpad2"),
-    ("BA_DC", "mul_add1",    "rev"),
-    ("BA_DC", "mul_add1",    "zpad2_rev"),
-    ("BA_DC", "mul_add1",    "zpad3_rev"),
-    ("AB_CD", "add",         "raw"),
-    ("AB_CD", "add",         "abs"),
-    ("AB_CD", "max_mod_min", "raw"),
-    ("AB_CD", "max_mod_min", "abs"),
     ("AB_CD", "cat",         "raw"),
     ("AB_CD", "cat",         "abs"),
     ("AB_CD", "cat",         "zpad2"),
     ("AB_CD", "cat",         "zpad3"),
-    ("AB_CD", "add_m1",      "raw"),
-    ("AB_CD", "add_m1",      "abs"),
-    ("AB_CD", "add_m1",      "zpad2"),
     ("AB_CD", "cat",         "zpad4"),
-    ("BA_DC", "rsub",        "rev_op_prefix"),
-    ("AB_CD", "add1",        "raw"),
-    ("AB_CD", "add1",        "abs"),
-    ("AB_CD", "add1",        "zpad2"),
-    ("BA_DC", "mul_add1",    "zpad4_rev"),
-    ("BA_DC", "mul_sub1",    "zpad4_rev"),
     ("AB_CD", "sub",         "abs"),
     ("AB_CD", "rsub",        "abs"),
     ("AB_CD", "abs_diff",    "raw"),
     ("AB_CD", "abs_diff",    "abs"),
     ("BA_DC", "rcat",        "zpad4_rev"),
-    ("AB_CD", "mul",         "raw"),
-    ("AB_CD", "mul",         "abs"),
-    ("BA_DC", "abs_diff",    "rev_op_suffix"),
-    ("BA_DC", "sub",         "rev_op_suffix"),
-    ("BA_DC", "rsub",        "rev_op_suffix"),
+    ("BA_DC", "abs_diff",    "rev_op_prefix"),
+    ("BA_DC", "mul_sub1",    "rev"),
+    ("BA_DC", "mul_sub1",    "zpad2_rev"),
+    ("BA_DC", "mul_sub1",    "zpad3_rev"),
+    ("BA_DC", "max_mod_min", "rev"),
+    ("BA_DC", "sub",         "zpad2_rev"),
+    ("BA_DC", "rsub",        "zpad2_rev"),
+    ("BA_DC", "abs_diff",    "zpad2_rev"),
+    ("AB_CD", "rcat",        "zpad4"),
+    ("BA_DC", "add_m1",      "rev"),
+    ("BA_DC", "add_m1",      "zpad2_rev"),
+    ("AB_CD", "max_mod_min", "raw"),
+    ("AB_CD", "max_mod_min", "abs"),
+    ("BA_DC", "mul_add1",    "rev"),
+    ("BA_DC", "mul_add1",    "zpad2_rev"),
+    ("BA_DC", "mul_add1",    "zpad3_rev"),
+    ("BA_DC", "add",         "zpad3_rev"),
+    ("BA_DC", "rcat",        "rev"),
+    ("BA_DC", "rcat",        "zpad2_rev"),
+    ("BA_DC", "rcat",        "zpad3_rev"),
+    ("AB_CD", "sub",         "zpad2"),
+    ("AB_CD", "rsub",        "zpad2"),
+    ("AB_CD", "abs_diff",    "zpad2"),
+    ("AB_CD", "rcat",        "raw"),
+    ("AB_CD", "rcat",        "abs"),
+    ("AB_CD", "rcat",        "zpad2"),
+    ("AB_CD", "rcat",        "zpad3"),
+    ("AB_CD", "sub",         "raw"),
+    ("AB_CD", "rsub",        "neg"),
     ("AB_CD", "sub",         "op_suffix"),
-    ("AB_CD", "abs_diff",    "op_suffix"),
     ("AB_CD", "rsub",        "op_prefix"),
     ("AB_CD", "abs_diff",    "op_prefix"),
+    ("AB_CD", "abs_diff",    "op_suffix"),
     ("AB_CD", "sub",         "abs_op_prefix"),
     ("AB_CD", "rsub",        "abs_op_prefix"),
     ("AB_CD", "abs_diff",    "abs_op_prefix"),
     ("AB_CD", "max_mod_min", "op_prefix"),
     ("AB_CD", "max_mod_min", "op_suffix"),
+    ("BA_DC", "sub",         "rev_op_prefix"),
+    ("BA_DC", "rsub",        "rev_op_prefix"),
+    ("BA_DC", "abs_diff",    "rev_op_suffix"),
+    ("AB_CD", "add1",        "raw"),
+    ("AB_CD", "add1",        "abs"),
+    ("AB_CD", "add1",        "zpad2"),
+    ("AB_CD", "add1",        "zpad3"),
+    ("AB_CD", "sub",         "neg"),
+    ("AB_CD", "rsub",        "raw"),
 ]
 
-MODE_MAP = {n: f for n, f in SN_OPERAND_MODES}
-OP_MAP   = {n: f for n, f in SN_OPERATIONS}
-FMT_MAP  = {n: f for n, f in SN_FORMATS}
+SN_MODE_MAP = {n: f for n, f in SN_OPERAND_MODES}
+SN_OP_MAP   = {n: f for n, f in SN_OPERATIONS}
+SN_FMT_MAP  = {n: f for n, f in SN_FORMATS}
+
+_SN_FREQ_SET = set(FREQ_ORDERED)
+SN_FULL_SCAN_ORDER = FREQ_ORDERED + [
+    (mn, on, fn)
+    for mn, _ in SN_OPERAND_MODES
+    for on, _ in SN_OPERATIONS
+    for fn, _ in SN_FORMATS
+    if (mn, on, fn) not in _SN_FREQ_SET
+]
 
 
 def sn_apply_combo(left_str, right_str, op_str, mode_fn, op_fn, fmt_fn):
@@ -525,51 +523,42 @@ def sn_apply_combo(left_str, right_str, op_str, mode_fn, op_fn, fmt_fn):
 
 
 def scan_freq_first(decoded_examples, op_str):
-    """频率优先扫描，examples>=2条时第一个匹配直接返回"""
-    tried = set()
-
-    for mode_name, op_name, fmt_name in FREQ_ORDERED:
-        mode_fn = MODE_MAP.get(mode_name)
-        op_fn   = OP_MAP.get(op_name)
-        fmt_fn  = FMT_MAP.get(fmt_name)
-        if not mode_fn or not op_fn or not fmt_fn:
+    """频率优先扫描784种组合。examples>=2条时第一个匹配直接返回；1条时返回频率最高的。"""
+    candidates = []
+    for mode_name, op_name, fmt_name in SN_FULL_SCAN_ORDER:
+        mode_fn = SN_MODE_MAP.get(mode_name)
+        op_fn   = SN_OP_MAP.get(op_name)
+        fmt_fn  = SN_FMT_MAP.get(fmt_name)
+        if mode_fn is None or op_fn is None or fmt_fn is None:
             continue
-        tried.add((mode_name, op_name, fmt_name))
         if all(sn_apply_combo(l, r, op_str, mode_fn, op_fn, fmt_fn) == e
                for l, r, e in decoded_examples):
+            candidates.append((mode_name, op_name, fmt_name, mode_fn, op_fn, fmt_fn))
             if len(decoded_examples) >= 2:
-                return mode_name, op_name, fmt_name, mode_fn, op_fn, fmt_fn
-
-    # examples只有1条时继续收集所有匹配，返回第一个高频的
-    for mode_name, mode_fn in SN_OPERAND_MODES:
-        for op_name, op_fn in SN_OPERATIONS:
-            for fmt_name, fmt_fn in SN_FORMATS:
-                if (mode_name, op_name, fmt_name) in tried:
-                    continue
-                if all(sn_apply_combo(l, r, op_str, mode_fn, op_fn, fmt_fn) == e
-                       for l, r, e in decoded_examples):
-                    return mode_name, op_name, fmt_name, mode_fn, op_fn, fmt_fn
-
-    return None
-
+                return candidates[0]
+    return candidates[0] if candidates else None
 
 def parse_symbol_numeric_prompt(prompt: str):
+    """解析symbol_numeric题，返回(same_decoded, other_decoded, query, op_str)"""
     pairs = []
     for line in prompt.splitlines():
         line = line.strip()
         if " = " in line and not line.startswith("In "):
             x, y = line.split(" = ", 1)
             pairs.append((x.strip(), y.strip()))
+
     m = re.search(r"result for:\s*(.*)", prompt)
     if not m:
         return [], [], None, None
+
     query = m.group(1).strip()
     if len(query) != 5:
         return [], [], None, None
-    op_str = query[2]
-    same_op = [(x, y) for x, y in pairs if len(x) == 5 and x[2] == op_str]
-    other_op = [(x, y) for x, y in pairs if len(x) == 5 and x[2] != op_str]
-    same_decoded = [(x[:2], x[3:], y) for x, y in same_op]
+
+    op_str    = query[2]
+    same_op   = [(x, y) for x, y in pairs if len(x) == 5 and x[2] == op_str]
+    other_op  = [(x, y) for x, y in pairs if len(x) == 5 and x[2] != op_str]
+    same_decoded  = [(x[:2], x[3:], y) for x, y in same_op]
     other_decoded = [(x[:2], x[3:], y, x[2]) for x, y in other_op]
     return same_decoded, other_decoded, query, op_str
 
@@ -578,17 +567,44 @@ def solve_symbol_numeric(prompt: str) -> tuple:
     same_decoded, other_decoded, query, op_str = parse_symbol_numeric_prompt(prompt)
     if query is None:
         return "", "Parse failed"
-    query_left = query[:2]
+
+    query_left  = query[:2]
     query_right = query[3:]
 
-    if same_decoded:
-        decoded_examples = same_decoded
-    elif other_decoded:
-        decoded_examples = [(l, r, o) for l, r, o, _ in other_decoded]
-    else:
+    if not same_decoded and not other_decoded:
         return "", "No examples"
 
-    result = scan_freq_first(decoded_examples, op_str)
+    # Step 1: 用same_decoded扫描
+    if same_decoded:
+        result = scan_freq_first(same_decoded, op_str)
+
+        # same_decoded只有1条时，用other_decoded做二次验证缩小候选
+        if result and len(same_decoded) <= 1 and other_decoded:
+            all_valid = []
+            for mn, mode_fn2 in SN_OPERAND_MODES:
+                for on, op_fn2 in SN_OPERATIONS:
+                    for fn, fmt_fn2 in SN_FORMATS:
+                        if all(sn_apply_combo(l, r, op_str, mode_fn2, op_fn2, fmt_fn2) == e
+                               for l, r, e in same_decoded):
+                            all_valid.append((mn, on, fn, mode_fn2, op_fn2, fmt_fn2))
+            if len(all_valid) > 1:
+                narrowed = []
+                for mn, on, fn, mfn, ofn, ffn in all_valid:
+                    score = 0
+                    for l, r, o, other_op in other_decoded:
+                        for _, ffn2 in SN_FORMATS:
+                            if sn_apply_combo(l, r, other_op, mfn, ofn, ffn2) == o:
+                                score += 1
+                                break
+                    if score == len(other_decoded):
+                        narrowed.append((mn, on, fn, mfn, ofn, ffn))
+                if narrowed:
+                    result = narrowed[0]
+    else:
+        # 没有same_decoded，用other_decoded
+        decoded_3 = [(l, r, o) for l, r, o, _ in other_decoded]
+        result = scan_freq_first(decoded_3, op_str)
+
     if result is None:
         return "", "No rule found"
 
@@ -597,14 +613,16 @@ def solve_symbol_numeric(prompt: str) -> tuple:
     if not pred:
         return "", "Apply failed"
 
-    cot = f"Step 1: Parse examples (operator='{op_str}'):\n"
+    # 生成CoT
+    decoded_examples = same_decoded if same_decoded else [(l, r, o) for l, r, o, _ in other_decoded]
+    cot  = f"Step 1: Parse examples (operator='{op_str}'):\n"
     for left, right, out in decoded_examples:
         cot += f"  {left} {op_str} {right} = {out}\n"
     cot += f"\nStep 2: Scan 784 combinations (frequency-weighted).\n"
     cot += f"  LOCK: mode={mode_name}, op={op_name}, fmt={fmt_name}\n"
     cot += f"\nStep 3: Verify rule against all examples:\n"
     for left, right, expected in decoded_examples:
-        got = sn_apply_combo(left, right, op_str, mode_fn, op_fn, fmt_fn)
+        got    = sn_apply_combo(left, right, op_str, mode_fn, op_fn, fmt_fn)
         status = "PASS" if got == expected else "FAIL"
         cot += f"  {left} {op_str} {right} -> {got} (expected {expected}) [{status}]\n"
     a, b = mode_fn(query_left, query_right)
@@ -615,9 +633,8 @@ def solve_symbol_numeric(prompt: str) -> tuple:
     cot += f"\n\\boxed{{{pred}}}"
     return pred, cot
 
-
 # ============================================================
-# Symbol Char Solver (旧版位置枚举，cipher_digit待Picat实现)
+# Symbol Char Solver (位置枚举，cipher_digit待Picat实现)
 # ============================================================
 
 def char_symbol_candidates(expr):
@@ -625,26 +642,30 @@ def char_symbol_candidates(expr):
     if len(expr) != 5: return {}
     left, op, right = expr[:2], expr[2], expr[3:]
     cands = {
-        "concat_lr": left+right, "concat_rl": right+left,
-        "left": left, "right": right,
-        "firsts": left[0]+right[0], "seconds": left[1]+right[1],
-        "outer": left[0]+right[1], "inner": left[1]+right[0],
-        "rev_concat_lr": (left+right)[::-1],
-        "rev_left_right": left[::-1]+right,
-        "left_rev_right": left+right[::-1],
-        "rev_left_rev_right": left[::-1]+right[::-1],
-        "unique_lr": "".join(dict.fromkeys(left+right)),
-        "unique_rl": "".join(dict.fromkeys(right+left)),
-        "common_lr": "".join(ch for ch in left if ch in right),
-        "common_rl": "".join(ch for ch in right if ch in left),
-        "diff_lr": "".join(ch for ch in left if ch not in right),
-        "diff_rl": "".join(ch for ch in right if ch not in left),
-        "symdiff_lr": "".join(ch for ch in left+right if (left+right).count(ch)==1),
+        "concat_lr":          left + right,
+        "concat_rl":          right + left,
+        "left":               left,
+        "right":              right,
+        "firsts":             left[0] + right[0],
+        "seconds":            left[1] + right[1],
+        "outer":              left[0] + right[1],
+        "inner":              left[1] + right[0],
+        "rev_concat_lr":      (left + right)[::-1],
+        "rev_left_right":     left[::-1] + right,
+        "left_rev_right":     left + right[::-1],
+        "rev_left_rev_right": left[::-1] + right[::-1],
+        "unique_lr":          "".join(dict.fromkeys(left + right)),
+        "unique_rl":          "".join(dict.fromkeys(right + left)),
+        "common_lr":          "".join(ch for ch in left if ch in right),
+        "common_rl":          "".join(ch for ch in right if ch in left),
+        "diff_lr":            "".join(ch for ch in left if ch not in right),
+        "diff_rl":            "".join(ch for ch in right if ch not in left),
+        "symdiff_lr":         "".join(ch for ch in left + right if (left + right).count(ch) == 1),
     }
     chars = list(expr)
     for mask in range(1, 32):
         idxs = [i for i in range(5) if mask & (1 << i)]
-        cands["pos_"+"".join(map(str,idxs))] = "".join(chars[i] for i in idxs)
+        cands["pos_" + "".join(map(str, idxs))] = "".join(chars[i] for i in idxs)
     return cands
 
 
@@ -662,8 +683,8 @@ def solve_symbol_char(prompt: str) -> tuple:
     if len(target) != 5:
         return "", "Query length != 5"
     target_op = target[2]
-    same_op = [(e,o) for e,o in pairs if len(e)==5 and e[2]==target_op]
-    examples = same_op if same_op else [(e,o) for e,o in pairs if len(e)==5]
+    same_op  = [(e, o) for e, o in pairs if len(e) == 5 and e[2] == target_op]
+    examples = same_op if same_op else [(e, o) for e, o in pairs if len(e) == 5]
     scores = {}
     for expr, out in examples:
         for name, value in char_symbol_candidates(expr).items():
@@ -676,14 +697,13 @@ def solve_symbol_char(prompt: str) -> tuple:
     pred = char_symbol_candidates(target).get(sorted(possible)[0], "")
     if not pred:
         return "", "Apply failed"
-    cot = f"Step 1: Parse examples (operator='{target_op}'):\n"
+    cot  = f"Step 1: Parse examples (operator='{target_op}'):\n"
     for expr, out in examples:
         cot += f"  {expr} = {out}\n"
     cot += f"\nStep 2: Score candidate rules, best={sorted(possible)[0]}\n"
     cot += f"\nStep 3: Apply to query '{target}': {pred}\n"
     cot += f"\n\\boxed{{{pred}}}"
     return pred, cot
-
 
 # ============================================================
 # 题型识别
@@ -699,30 +719,26 @@ def detect_task_type(prompt: str) -> str:
     if "transformation rules is applied to equations" in p: return "symbol"
     return "unknown"
 
-
 def extract_symbol_query(prompt: str) -> str:
     m = re.search(r"result\s+for\s*:\s*(.+)", str(prompt), re.I | re.S)
     return m.group(1).strip() if m else ""
 
-
 def is_numeric_symbol_query(query: str) -> bool:
     return re.match(r'^\d+([^\d]+\d+)+$', str(query).strip()) is not None
 
-
 def normalize_task_type(row: dict) -> str:
-    prompt = str(row.get("prompt", ""))
+    prompt   = str(row.get("prompt", ""))
     raw_type = str(row.get("type", "")).lower()
-    if "numeral" in raw_type or "roman" in raw_type: return "roman"
-    if "encrypt" in raw_type or "cipher" in raw_type: return "cipher"
-    if "unit" in raw_type: return "unit"
+    if "numeral" in raw_type or "roman" in raw_type:       return "roman"
+    if "encrypt" in raw_type or "cipher" in raw_type:      return "cipher"
+    if "unit" in raw_type:                                  return "unit"
     if "gravity" in raw_type or "gravitational" in raw_type: return "gravity"
-    if "bit" in raw_type: return "bit"
+    if "bit" in raw_type:                                   return "bit"
     base = "symbol" if ("equation" in raw_type or "symbol" in raw_type) else detect_task_type(prompt)
     if base == "symbol":
         query = extract_symbol_query(prompt)
         return "symbol_numeric" if is_numeric_symbol_query(query) else "symbol_char"
     return base
-
 
 # ============================================================
 # Prompt（LLM兜底用）
@@ -750,10 +766,8 @@ Put ONLY the cipher-encoded answer inside \boxed{}.
     "unknown": r"""Infer the rule. Verify. Apply. Put answer inside \boxed{}.""",
 }
 
-
 def build_user_message(prompt: str) -> str:
     return f"Here is the task prompt:\n\n{prompt}\n\nPut the final answer inside exactly one \\boxed{{...}}."
-
 
 # ============================================================
 # 答案提取和验证
@@ -780,12 +794,10 @@ def extract_answer(response: str) -> str:
     lines = [l.strip() for l in response.strip().splitlines() if l.strip()]
     return lines[-1] if lines else ""
 
-
 def clean_boxed_answer(ans: str) -> str:
     ans = str(ans).strip()
     m = re.fullmatch(r"\\text\{(.+)\}", ans)
     return m.group(1).strip() if m else ans
-
 
 def check_answer(pred: str, gt: str, task_type: str) -> bool:
     pred, gt = str(pred).strip(), str(gt).strip()
@@ -804,7 +816,6 @@ def check_answer(pred: str, gt: str, task_type: str) -> bool:
     if task_type == "cipher": return pred.lower().strip() == gt.lower().strip()
     return pred == gt
 
-
 # ============================================================
 # API 调用
 # ============================================================
@@ -814,7 +825,10 @@ def call_api(system_msg: str, user_msg: str) -> str:
         try:
             resp = client.chat.completions.create(
                 model=MODEL,
-                messages=[{"role":"system","content":system_msg},{"role":"user","content":user_msg}],
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user",   "content": user_msg},
+                ],
                 temperature=TEMPERATURE,
                 max_tokens=MAX_TOKENS,
                 extra_body={"thinking": {"type": "disabled"}},
@@ -829,56 +843,61 @@ def call_api(system_msg: str, user_msg: str) -> str:
     print("[ERROR] All retries failed, returning empty")
     return ""
 
-
 # ============================================================
 # process_row
 # ============================================================
 
 VOCAB: set = set()
 
-
 def process_row(row: dict) -> dict:
-    prompt = str(row["prompt"])
-    gt = str(row["answer"])
+    prompt    = str(row["prompt"])
+    gt        = str(row["answer"])
     task_type = normalize_task_type(row)
 
     if task_type == "bit":
         pred, cot = solve_bit(prompt)
+
     elif task_type == "gravity":
         pred, cot = solve_gravity(prompt)
+
     elif task_type == "unit":
         pred, cot = solve_unit(prompt)
+
     elif task_type == "roman":
         pred, cot = solve_roman(prompt)
+
     elif task_type == "cipher":
         pred, cot = solve_cipher(prompt, VOCAB)
+
     elif task_type == "symbol_numeric":
         pred, cot = solve_symbol_numeric(prompt)
         if not pred:
-            system_msg = PROMPTS["symbol_numeric"]
-            response = call_api(system_msg, build_user_message(prompt))
+            response = call_api(PROMPTS["symbol_numeric"], build_user_message(prompt))
             pred = clean_boxed_answer(extract_answer(response))
-            cot = response
+            cot  = response
+
     elif task_type == "symbol_char":
         pred, cot = solve_symbol_char(prompt)
         if not pred:
-            system_msg = PROMPTS["symbol_char"]
-            response = call_api(system_msg, build_user_message(prompt))
+            response = call_api(PROMPTS["symbol_char"], build_user_message(prompt))
             pred = clean_boxed_answer(extract_answer(response))
-            cot = response
+            cot  = response
+
     else:
-        system_msg = PROMPTS.get(task_type, PROMPTS["unknown"])
-        response = call_api(system_msg, build_user_message(prompt))
+        response = call_api(PROMPTS.get(task_type, PROMPTS["unknown"]), build_user_message(prompt))
         pred = clean_boxed_answer(extract_answer(response))
-        cot = response
+        cot  = response
 
     correct = check_answer(pred, gt, task_type)
     return {
-        "id": row["id"], "type": task_type,
-        "prompt": prompt, "answer": gt,
-        "generated_cot": cot, "extracted_answer": pred, "correct": correct,
+        "id":             row["id"],
+        "type":           task_type,
+        "prompt":         prompt,
+        "answer":         gt,
+        "generated_cot":  cot,
+        "extracted_answer": pred,
+        "correct":        correct,
     }
-
 
 # ============================================================
 # 主流程
@@ -890,7 +909,6 @@ def save_checkpoint(results):
         json.dump(results, f, ensure_ascii=False, indent=2)
     os.replace(tmp_path, CHECKPOINT_PATH)
 
-
 def main():
     global VOCAB
     VOCAB = build_vocab(DATA_PATH)
@@ -899,8 +917,8 @@ def main():
     df = pd.read_csv(DATA_PATH, dtype=str, keep_default_na=False)
     print(f"Total rows: {len(df)}")
 
-    results = []
-    done_ids = set()
+    results   = []
+    done_ids  = set()
 
     if os.path.exists(CHECKPOINT_PATH):
         with open(CHECKPOINT_PATH, "r", encoding="utf-8") as f:
@@ -913,12 +931,12 @@ def main():
         row for row in remaining
         if normalize_task_type(row) in {
             "bit", "gravity", "unit", "roman", "cipher",
-            "symbol_numeric", "symbol_char",
+            "symbol_numeric", 
         }
     ]
     print(f"Remaining rows: {len(remaining)}")
 
-    lock = Lock()
+    lock       = Lock()
     type_stats = defaultdict(lambda: {"total": 0, "correct": 0})
     for r in results:
         t = r["type"]
@@ -934,10 +952,13 @@ def main():
             except Exception:
                 row = futures[future]
                 result = {
-                    "id": row.get("id",""), "type": "error",
-                    "prompt": row.get("prompt",""), "answer": row.get("answer",""),
-                    "generated_cot": traceback.format_exc(),
-                    "extracted_answer": "", "correct": False,
+                    "id":             row.get("id", ""),
+                    "type":           "error",
+                    "prompt":         row.get("prompt", ""),
+                    "answer":         row.get("answer", ""),
+                    "generated_cot":  traceback.format_exc(),
+                    "extracted_answer": "",
+                    "correct":        False,
                 }
             with lock:
                 results.append(result)
@@ -949,7 +970,7 @@ def main():
                 save_checkpoint(results)
                 print(f"\nProgress: {len(results)}/{len(df)}")
                 for t, s in sorted(type_stats.items()):
-                    acc = s["correct"]/s["total"] if s["total"] else 0
+                    acc = s["correct"] / s["total"] if s["total"] else 0
                     print(f"  {t}: {s['correct']}/{s['total']} ({acc:.1%})")
 
     save_checkpoint(results)
@@ -958,7 +979,7 @@ def main():
     result_df.to_csv(ALL_OUTPUT_PATH, index=False, encoding="utf-8")
 
     correct_df = result_df[result_df["correct"] == True].copy()
-    correct_df[["id","type","prompt","answer","generated_cot","extracted_answer"]].to_csv(
+    correct_df[["id", "type", "prompt", "answer", "generated_cot", "extracted_answer"]].to_csv(
         OUTPUT_PATH, index=False, encoding="utf-8"
     )
 
@@ -968,9 +989,8 @@ def main():
     print(f"Correct samples: {len(correct_df)}/{len(result_df)}")
     print("\nFinal stats:")
     for t, s in sorted(type_stats.items()):
-        acc = s["correct"]/s["total"] if s["total"] else 0
+        acc = s["correct"] / s["total"] if s["total"] else 0
         print(f"  {t}: {s['correct']}/{s['total']} ({acc:.1%})")
-
 
 if __name__ == "__main__":
     main()
